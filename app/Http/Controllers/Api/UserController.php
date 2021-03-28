@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Services\UserService;
+use http\Env\Response;
 use Illuminate\Http\Request;
 use Validator;
 
@@ -17,11 +17,6 @@ class UserController extends Controller
         $this->userService = $userService;
     }
 
-    /**
-     * Register a User.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function register(Request $request)
     {
         $params = $request->all();
@@ -48,8 +43,10 @@ class UserController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request)
     {
+
+        $user = auth()->user();
         $params = $request->all();
 
         $validator = Validator::make($params, [
@@ -60,15 +57,32 @@ class UserController extends Controller
             'user_role' => 'sometimes|integer'
         ]);
 
-        if($validator->fails()){
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
 
-        $user = $this->userService->update($id, $params);
+        try {
+            $user = $this->userService->update($user->id, $params);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
+        }
 
         return response()->json([
            'message' => 'Profile successfully updated',
            'user' => $user
         ]);
+    }
+
+    public function confirm_registration(Request $request)
+    {
+        $code = $request->post('code');
+
+        try {
+            $this->userService->confirmRegistration(auth()->user()->id, $code);
+            return response()->json(['message' => 'Account registration confirmed'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
+        }
+
     }
 }

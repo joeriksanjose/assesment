@@ -30,5 +30,6 @@ Route::group([
     'prefix' => 'user'
 ], function ($router) {
     Route::post('', 'App\Http\Controllers\Api\UserController@register');
-    Route::put('/{id}', 'App\Http\Controllers\Api\UserController@update')->middleware('jwt.auth:api');
+    Route::put('', 'App\Http\Controllers\Api\UserController@update')->middleware('jwt.auth');
+    Route::put('confirm-registration', 'App\Http\Controllers\Api\UserController@confirm_registration')->middleware('jwt.auth');
 });

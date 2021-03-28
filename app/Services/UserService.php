@@ -2,13 +2,38 @@
 
 namespace App\Services;
 
+use App\Mail\ConfirmRegistration;
 use App\Models\User;
+use App\Models\UserConfirmRegistration;
+use Illuminate\Support\Facades\Mail;
+use Mockery\Exception;
 
 class UserService
 {
     public function create($params)
     {
-        return User::create($params);
+        \DB::beginTransaction();
+
+        try {
+            $user = User::create($params);
+
+            // create 6 digits registration confirmation
+            $randomSixDigitNumber = mt_rand(100000, 999999);
+            UserConfirmRegistration::create([
+                'user_id' => $user->id,
+                'code' => $randomSixDigitNumber
+            ]);
+
+            \DB::commit();
+
+            Mail::to($user->email)->send(new ConfirmRegistration($user, $randomSixDigitNumber));
+
+            return $user;
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            throw $e;
+        }
+
     }
 
     public function update($id, $params)
@@ -50,5 +75,29 @@ class UserService
         $user->save();
 
         return $user;
+    }
+
+    public function confirmRegistration($id, $code)
+    {
+        \DB::beginTransaction();
+
+        try {
+            $userCode = UserConfirmRegistration::where('user_id', $id)
+                ->where('code', $code);
+
+            if (!$userCode->first()) {
+                throw new Exception('User code not found');
+            }
+
+            $userCode->delete();
+
+            // update registered_at
+            $this->update($id, ['registered_at' => date('Y-m-d H:i:s')]);
+
+            \DB::commit();
+        } catch (\Exception $e) {
+            \DB::rollback();
+            throw $e;
+        }
     }
 }
